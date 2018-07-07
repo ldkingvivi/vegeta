@@ -61,6 +61,8 @@ attack command:
       Local IP address (default 0.0.0.0)
   -lazy
       Read targets lazily
+  -name string
+      Attack name
   -output string
       Output file (default "stdout")
   -rate uint
@@ -404,14 +406,14 @@ We're ready to start the attack. All we need to do is to divide the intended rat
 and use that number on each attack. Here we'll use [pdsh](https://code.google.com/p/pdsh/) for orchestration.
 
 ```shell
-$ pdsh -b -w '10.0.1.1,10.0.2.1,10.0.3.1' \
+$ PDSH_RCMD_TYPE=ssh pdsh -b -w '10.0.1.1,10.0.2.1,10.0.3.1' \
     'echo "GET http://target/" | vegeta attack -rate=20000 -duration=60s > result.bin'
 ```
 
 After the previous command finishes, we can gather the result files to use on our report.
 
 ```shell
-$ for machine in "10.0.1.1 10.0.2.1 10.0.3.1"; do
+$ for machine in 10.0.1.1 10.0.2.1 10.0.3.1; do
     scp $machine:~/result.bin $machine.bin &
   done
 ```
@@ -429,6 +431,24 @@ Success       [ratio]               100.0%
 Status Codes  [code:count]          200:3600000
 Error Set:
 ```
+
+## Usage: Real-time Analysis
+If you are a happy user of iTerm, you can integrate vegeta with [jplot](https://github.com/rs/jplot) using [jaggr](https://github.com/rs/jaggr) to plot a vegeta report in real-time in the comfort of you terminal:
+
+```
+echo 'GET http://localhost:8080' | \
+    vegeta attack -rate 5000 -duration 10m | vegeta dump | \
+    jaggr @count=rps \
+          hist\[100,200,300,400,500\]:code \
+          p25,p50,p95:latency \
+          sum:bytes_in \
+          sum:bytes_out | \
+    jplot rps+code.hist.100+code.hist.200+code.hist.300+code.hist.400+code.hist.500 \
+          latency.p95+latency.p50+latency.p25 \
+          bytes_in.sum+bytes_out.sum
+```
+
+![](https://i.imgur.com/ttBDsQS.gif)
 
 ## Usage (Library)
 ```go
